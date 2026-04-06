@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>精致枪战小游戏</title>
+    <title>终极精致枪战小游戏</title>
     <style>
         * {
             margin: 0;
@@ -33,7 +33,7 @@
         .ui {
             margin-top: 12px;
             display: flex;
-            gap: 30px;
+            gap: 25px;
             background: #151522;
             padding: 10px 24px;
             border-radius: 10px;
@@ -70,12 +70,13 @@
     </style>
 </head>
 <body>
-    <div class="title">🔫 精致枪战小游戏</div>
+    <div class="title">🔫 终极精致枪战小游戏</div>
     <canvas id="gameCanvas" width="800" height="600"></canvas>
     <div class="ui">
         <div>得分：<span id="score">0</span></div>
         <div>生命：<span id="hp">100</span></div>
-        <div>WASD 移动 | 鼠标瞄准 | 左键射击 | 空格跳跃</div>
+        <div>技能：按 E 键开启双倍射速</div>
+        <div>WASD 移动 | 鼠标射击 | 空格跳跃</div>
     </div>
     <div id="gameOver">
         <div>💀 游戏结束</div>
@@ -93,200 +94,12 @@
         const restartBtn = document.getElementById('restart');
 
         let player, bullets, enemies, explosions, score, keys, gameOver;
+        let skillTimer = 0;
+        let isDoubleFire = false;
 
-        // 初始化游戏
-        function init() {
-            player = {
-                x: 400, y: 300, w: 32, h: 48,
-                speed: 5, hp: 100,
-                vy: 0, gravity: 0.7, jumpPower: -14, onGround: true,
-                color: '#22e36b'
-            };
-            bullets = [];
-            enemies = [];
-            explosions = [];
-            score = 0;
-            keys = {};
-            gameOver = false;
-            scoreEl.textContent = 0;
-            hpEl.textContent = 100;
-            gameOverEl.style.display = 'none';
-        }
-
-        // 键盘
-        document.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-        document.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-
-        // 鼠标射击
-        canvas.addEventListener('click', e => {
-            if(gameOver) return;
-            const rect = canvas.getBoundingClientRect();
-            const mx = e.clientX - rect.left;
-            const my = e.clientY - rect.top;
-            const cx = player.x + player.w/2;
-            const cy = player.y + player.h/2;
-            const dx = mx - cx;
-            const dy = my - cy;
-            const len = Math.hypot(dx, dy) || 1;
-            const speed = 9;
-            bullets.push({
-                x: cx, y: cy,
-                dx: dx/len*speed, dy: dy/len*speed,
-                r: 4, color: '#ffd03f'
-            });
-        });
-
-        // 绘制准星
-        canvas.addEventListener('mousemove', e => {
-            const rect = canvas.getBoundingClientRect();
-            window.mx = e.clientX - rect.left;
-            window.my = e.clientY - rect.top;
-        });
-
-        // 刷怪
-        setInterval(() => {
-            if(gameOver) return;
-            enemies.push({
-                x: Math.random()*(canvas.width-32),
-                y: Math.random()*(canvas.height-40),
-                w: 28, h: 40, speed: 1.5,
-                color: '#ff4757', hp: 2
-            });
-        }, 1800);
-
-        // 游戏循环
-        function loop() {
-            ctx.fillStyle = '#07070f';
-            ctx.fillRect(0,0,canvas.width,canvas.height);
-
-            if(gameOver) {
-                drawGameOver();
-                requestAnimationFrame(loop);
-                return;
-            }
-
-            // 玩家移动
-            if(keys['a']) player.x -= player.speed;
-            if(keys['d']) player.x += player.speed;
-            if(keys['w']) player.y -= player.speed;
-            if(keys['s']) player.y += player.speed;
-
-            // 边界
-            if(player.x < 0) player.x = 0;
-            if(player.x+player.w > canvas.width) player.x = canvas.width-player.w;
-            if(player.y < 0) player.y = 0;
-            if(player.y+player.h > canvas.height) player.y = canvas.height-player.h;
-
-            // 跳跃
-            if(keys[' '] && player.onGround) {
-                player.vy = player.jumpPower;
-                player.onGround = false;
-            }
-            player.vy += player.gravity;
-            player.y += player.vy;
-            if(player.y+player.h >= canvas.height) {
-                player.y = canvas.height-player.h;
-                player.vy = 0;
-                player.onGround = true;
-            }
-
-            // 绘制玩家
-            const g = ctx.createLinearGradient(0,player.y,0,player.y+player.h);
-            g.addColorStop(0,'#3fff8f');
-            g.addColorStop(1,'#0fa86f');
-            ctx.fillStyle = g;
-            ctx.fillRect(player.x,player.y,player.w,player.h);
-
-            // 敌人逻辑
-            for(let i=enemies.length-1;i>=0;i--){
-                const e = enemies[i];
-                if(e.x < player.x) e.x += e.speed;
-                if(e.x > player.x) e.x -= e.speed;
-                if(e.y < player.y) e.y += e.speed;
-                if(e.y > player.y) e.y -= e.speed;
-
-                const eg = ctx.createLinearGradient(0,e.y,0,e.y+e.h);
-                eg.addColorStop(0,'#ff7675');
-                eg.addColorStop(1,'#d63031');
-                ctx.fillStyle = eg;
-                ctx.fillRect(e.x,e.y,e.w,e.h);
-
-                // 敌人碰玩家
-                if(
-                    player.x < e.x+e.w && player.x+player.w > e.x &&
-                    player.y < e.y+e.h && player.y+player.h > e.y
-                ){
-                    player.hp -= 0.5;
-                    hpEl.textContent = Math.floor(player.hp);
-                    if(player.hp <= 0) {
-                        gameOver = true;
-                        finalScoreEl.textContent = score;
-                        gameOverEl.style.display = 'block';
-                    }
-                }
-
-                // 子弹击中
-                for(let j=bullets.length-1;j>=0;j--){
-                    const b = bullets[j];
-                    if(b.x>e.x && b.x<e.x+e.w && b.y>e.y && b.y<e.y+e.h){
-                        e.hp--;
-                        bullets.splice(j,1);
-                        if(e.hp<=0){
-                            explosions.push({x:e.x+e.w/2,y:e.y+e.h/2,r:1,max:12});
-                            enemies.splice(i,1);
-                            score +=10;
-                            scoreEl.textContent=score;
-                        }
-                        break;
-                    }
-                }
-            }
-
-            // 子弹
-            for(let i=bullets.length-1;i>=0;i--){
-                const b=bullets[i];
-                b.x+=b.dx; b.y+=b.dy;
-                ctx.beginPath();
-                ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
-                ctx.fillStyle=b.color;
-                ctx.fill();
-                if(b.x<0||b.x>canvas.width||b.y<0||b.y>canvas.height) bullets.splice(i,1);
-            }
-
-            // 爆炸
-            for(let i=explosions.length-1;i>=0;i--){
-                const ex=explosions[i];
-                ctx.beginPath();
-                ctx.arc(ex.x,ex.y,ex.r,0,Math.PI*2);
-                ctx.fillStyle=`rgba(255,180,50,${1-ex.r/ex.max})`;
-                ctx.fill();
-                ex.r+=0.8;
-                if(ex.r>ex.max) explosions.splice(i,1);
-            }
-
-            // 绘制准星
-            if(window.mx && window.my){
-                ctx.strokeStyle='#00ffcc';
-                ctx.lineWidth=2;
-                ctx.beginPath();
-                ctx.moveTo(window.mx-10,window.my);
-                ctx.lineTo(window.mx+10,window.my);
-                ctx.moveTo(window.mx,window.my-10);
-                ctx.lineTo(window.mx,window.my+10);
-                ctx.stroke();
-            }
-
-            requestAnimationFrame(loop);
-        }
-
-        function drawGameOver(){
-            ctx.fillStyle='rgba(0,0,0,0.6)';
-            ctx.fillRect(0,0,canvas.width,canvas.height);
-        }
-
-        restartBtn.onclick = init;
-        init();
-        loop();
-    </script>
-</body>
-</html>
+        // 音效函数
+        function playSound(type) {
+            try {
+                let audio;
+                if (type === 'shoot') {
+                    audio = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU9vT19AAAAA//+Pq/9vov+foL1znK+QYIeBcXl1eXp+fH5/fX+Fp/92o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91o/91
